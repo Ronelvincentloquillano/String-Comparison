@@ -1,0 +1,126 @@
+ORG 100h       ; Set origin for COM file
+
+START:
+    MOV DX, OFFSET MSG1
+    MOV AH, 09h
+    INT 21h        ; Display "Enter first string: "
+    
+    MOV SI, OFFSET STR1
+    CALL READ_STRING  ; Read first string from user
+
+    MOV DX, OFFSET MSG2
+    MOV AH, 09h
+    INT 21h        ; Display "Enter second string: "
+    
+    MOV SI, OFFSET STR2
+    CALL READ_STRING  ; Read second string from user
+
+    MOV DX, OFFSET MSG3
+    MOV AH, 09h
+    INT 21h        ; Display "Case-sensitive? (Y/N): "
+    
+    MOV AH, 01h
+    INT 21h        ; Read user choice
+    MOV BL, AL     ; Store user choice in BL
+    CALL NEWLINE   ; Print newline
+    
+    MOV SI, OFFSET STR1
+    MOV DI, OFFSET STR2
+    CALL COMPARE_STRINGS  ; Compare STR1 and STR2
+
+    MOV AH, 4Ch
+    INT 21h        ; Terminate program
+
+; === FUNCTION: READ_STRING ===
+READ_STRING PROC
+    MOV AH, 0Ah
+    MOV DX, OFFSET BUFFER
+    INT 21h        ; Read string from user
+    LEA SI, BUFFER + 2  ; Store actual string (after buffer bytes)
+    RET
+READ_STRING ENDP
+
+; === FUNCTION: COMPARE_STRINGS ===
+COMPARE_STRINGS PROC
+    CMP BL, 'N'  
+    JE CASE_INSENSITIVE   ; Jump if user chose case-insensitive
+
+CASE_SENSITIVE:
+    MOV CX, 20h  ; Maximum length (assuming input length limit)
+COMPARE_LOOP:
+    MOV AL, [SI]  
+    MOV AH, [DI]
+    CMP AL, 0
+    JE END_COMPARISON
+    CMP AL, AH
+    JNE NOT_EQUAL
+    INC SI
+    INC DI
+    LOOP COMPARE_LOOP
+    JMP STRINGS_EQUAL
+
+CASE_INSENSITIVE:
+    MOV CX, 20h
+CI_LOOP:
+    MOV AL, [SI]  
+    MOV AH, [DI]
+    CMP AL, 0
+    JE END_COMPARISON
+    
+    CMP AL, 'a'
+    JB NO_CHANGE1
+    CMP AL, 'z'
+    JA NO_CHANGE1
+    SUB AL, 32  ; Convert lowercase to uppercase
+NO_CHANGE1:
+
+    CMP AH, 'a'
+    JB NO_CHANGE2
+    CMP AH, 'z'
+    JA NO_CHANGE2
+    SUB AH, 32  ; Convert lowercase to uppercase
+NO_CHANGE2:
+
+    CMP AL, AH
+    JNE NOT_EQUAL
+    INC SI
+    INC DI
+    LOOP CI_LOOP
+    JMP STRINGS_EQUAL
+
+NOT_EQUAL:
+    MOV DL, '0'   ; If not equal, print '0'
+    MOV AH, 02h
+    INT 21h
+    RET
+
+STRINGS_EQUAL:
+    MOV DL, '1'   ; If equal, print '1'
+    MOV AH, 02h
+    INT 21h
+    RET
+
+END_COMPARISON:
+    JMP STRINGS_EQUAL   ; If end of both strings is reached, they're equal
+
+COMPARE_STRINGS ENDP
+
+; === FUNCTION: NEWLINE ===
+NEWLINE PROC
+    MOV DL, 0Dh
+    MOV AH, 02h
+    INT 21h
+    MOV DL, 0Ah
+    INT 21h
+    RET
+NEWLINE ENDP
+
+; === DATA SECTION ===
+MSG1 DB 'Enter first string: $'
+MSG2 DB 'Enter second string: $'
+MSG3 DB 'Case-sensitive? (Y/N): $'
+BUFFER DB 20, 0  ; Buffer for input
+STR1 DB 20 DUP('$') ; First string storage
+STR2 DB 20 DUP('$') ; Second string storage
+
+END START
